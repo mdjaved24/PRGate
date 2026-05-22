@@ -261,6 +261,17 @@ prgate/
 │   ├── prompts.py
 │   ├── parser.py
 │   └── reviewer.py
+├── logs/
+│   ├── app.log
+│   ├── audit.log
+│   ├── cache.log
+│   ├── database.log
+│   ├── error.log
+│   ├── github.log
+│   ├── llm.log
+│   └── pr_fetcher.log
+│   ├── review.log
+│   ├── webhook.log
 ├── models/
 │   ├── __init__.py
 │   └── findings.py
@@ -333,6 +344,67 @@ CACHE_TTL_SECONDS=3600
 RATE_LIMIT_MAX_REQUESTS=10
 RATE_LIMIT_TIME_WINDOW=60
 ```
+---
+## 📊 Logging System
+
+PRGate includes a comprehensive logging system to monitor, debug, and audit all operations.
+
+### Log Files
+
+| Log File | Purpose |
+|----------|---------|
+| `logs/app.log` | Application lifecycle events |
+| `logs/webhook.log` | Incoming webhook events |
+| `logs/review.log` | PR review processing |
+| `logs/llm.log` | LLM operations and caching |
+| `logs/database.log` | MongoDB operations |
+| `logs/github.log` | GitHub API calls |
+| `logs/cache.log` | Cache operations |
+| `logs/error.log` | Errors and exceptions |
+| `logs/audit.log` | Security audit trail |
+| `logs/pr_fetcher.log` | PR fetch operations |
+
+### Log Levels
+
+| Level | Usage |
+|-------|-------|
+| `DEBUG` | Detailed cache operations, LLM parsing, file filtering |
+| `INFO` | Normal operations, review completion, database saves |
+| `WARNING` | Rate limiting, merge blocking, retries |
+| `ERROR` | Failed reviews, API errors, exceptions |
+
+### View Logs
+
+```bash
+# View recent app logs
+python view_logs.py --log app --lines 50
+
+# Follow webhook logs in real-time
+python view_logs.py --log webhook --follow
+
+# Check audit trail
+python view_logs.py --log audit --lines 100
+
+# View errors only
+python view_logs.py --log error --lines 50
+
+# View LLM operations
+python view_logs.py --log llm --lines 50 --follow
+```
+### Log Output Example
+```bash
+2026-05-22 09:56:38 | INFO     | webhook    | Webhook received - Event: pull_request, Delivery ID: 6bbeae70...
+2026-05-22 09:56:38 | INFO     | review     | PR #6 - Review ID: a95de44e...
+2026-05-22 09:56:38 | INFO     | review     |   Repository: mdjaved24/codesentry-test-repo
+2026-05-22 09:56:38 | INFO     | review     |   Author: mdjaved24
+2026-05-22 09:56:38 | INFO     | review     |   Action: synchronize
+2026-05-22 09:56:42 | INFO     | review     | Total files changed: 1
+2026-05-22 09:56:42 | INFO     | llm        | LLM review attempt 1/2
+2026-05-22 09:56:46 | INFO     | llm        | Attempt 1 completed in 4.54s - Found 18 issues
+2026-05-22 09:56:48 | WARNING  | review     | PR #6 - Merge blocked due to critical/high severity issues
+2026-05-22 09:56:58 | INFO     | audit      | PR Review completed - #6, Findings: 18, Blocked: True, Time: 19.55s
+```
+---
 
 ## 🐛 Troubleshooting
 

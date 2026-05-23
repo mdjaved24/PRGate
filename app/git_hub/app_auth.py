@@ -20,11 +20,41 @@ class GitHubAppAuth:
         self.app_id = os.getenv('GITHUB_APP_ID')
         self.webhook_secret = os.getenv('GITHUB_WEBHOOK_SECRET')
         self.fallback_token = os.getenv('GITHUB_TOKEN')
-        self.private_key_path = os.getenv('GITHUB_PRIVATE_KEY_PATH', './private-key.pem')
+        self.private_key_content = os.getenv('GITHUB_PRIVATE_KEY')  # Direct content from env
         
         self.app = None
         self.installation_id = None
         self._initialized = False
+    
+    def _get_private_key(self):
+        """Get private key from multiple sources"""
+        
+        # Option 1: Direct from environment variable (recommended for Render)
+        if self.private_key_content:
+            github_logger.info("✅ Using private key from GITHUB_PRIVATE_KEY env variable")
+            return self.private_key_content.replace('\\n', '\n')
+        
+        # Option 2: From file path
+        key_path = os.getenv('GITHUB_PRIVATE_KEY_PATH', './private-key.pem')
+        
+        # Check multiple possible paths
+        possible_paths = [
+            key_path,
+            '/etc/secrets/private-key.pem',      # Render secrets
+            '/opt/render/secrets/private-key.pem', # Alternative Render path
+            './private-key.pem',                  # Current directory
+            '../private-key.pem',                 # Parent directory
+            '/app/private-key.pem',               # Docker/app path
+        ]
+        
+        for path in possible_paths:
+            if path and os.path.exists(path):
+                github_logger.info(f"✅ Found private key at: {path}")
+                with open(path, 'r') as f:
+                    return f.read()
+        
+        github_logger.error("❌ Private key not found in any location")
+        return None
     
     def initialize(self):
         """Initialize GitHub App connection"""
@@ -33,14 +63,11 @@ class GitHubAppAuth:
             return self._init_fallback()
         
         try:
-            # Check if private key file exists
-            if not os.path.exists(self.private_key_path):
-                github_logger.warning(f"Private key file not found: {self.private_key_path}")
+            # Get private key
+            private_key = self._get_private_key()
+            if not private_key:
+                github_logger.warning("No private key found, falling back to PAT")
                 return self._init_fallback()
-            
-            # Read private key from file
-            with open(self.private_key_path, 'r') as f:
-                private_key = f.read()
             
             # Create integration
             self.app = GithubIntegration(

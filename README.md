@@ -28,6 +28,64 @@
 
 ---
 
+## 🚀 Install PRGate
+
+### One-Click Installation
+
+[![Install PRGate](https://img.shields.io/badge/Install-PRGate-181717?style=for-the-badge&logo=github)](https://github.com/apps/prgate-security-bot/installations/new)
+
+Click the badge above or visit [PRGate Security Bot](https://github.com/apps/prgate-security-bot) to install the app on your repositories.
+
+---
+
+## 📋 How It Works
+
+### 1. Install the App
+- Click the **Install** button on [PRGate Security Bot](https://github.com/apps/prgate-security-bot)
+- Select the repositories you want to protect
+- Grant the required permissions
+
+### 2. Create a Pull Request
+PRGate automatically:
+- ✅ **Reviews every opened PR** for security vulnerabilities
+- ✅ **Posts findings** as detailed comments
+- ✅ **Adds severity labels** (security-critical, security-high, etc.)
+- ✅ **Blocks merging** when critical/high severity issues are found
+
+### 3. Review the Results
+
+PRGate posts a comment like this on your PR:
+
+## 🔒 PRGate Security Review
+
+**Pull Request:** #123 - Add new feature
+**Files Reviewed:** 1
+**Issues Found:** 3 in 1 file(s)
+
+### Severity Breakdown
+- 🔴 Critical: 1
+- 🟠 High: 1
+- 🟡 Medium: 1
+
+### 📋 Detailed Findings
+
+#### 📄 `vulnerable.py`
+
+1. 🔴 CRITICAL - hardcoded_secret
+   **Issue:** API key hardcoded in source code
+   **Fix:** Use environment variables
+   **CWE:** 798
+
+2. 🟠 HIGH - sql_injection
+   **Issue:** SQL injection vulnerability
+   **Fix:** Use parameterized queries
+   **CWE:** 89
+
+## 🚫 Merge Blocked
+This PR contains critical or high severity security issues and cannot be merged.
+
+---
+
 ## 🛠️ Technologies Used
 
 | 🏷️ Component | 🔧 Technology | 📝 Description |

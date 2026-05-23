@@ -41,4 +41,26 @@ def main():
 app.include_router(router=git_router)
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    import os
+    
+    # Get environment
+    environment = os.getenv("ENVIRONMENT", "development")
+    
+    if environment == "production":
+        # Production settings (Render)
+        port = int(os.getenv("PORT", 8000))
+        uvicorn.run(
+            "main:app",
+            host="0.0.0.0",  # Listen on all interfaces
+            port=port,
+            reload=False,     # No auto-reload in production
+            workers=4         # Multiple workers for production
+        )
+    else:
+        # Development settings (local)
+        uvicorn.run(
+            "main:app",
+            host="127.0.0.1",  # Local only
+            port=8000,
+            reload=True        # Auto-reload on code changes
+        )

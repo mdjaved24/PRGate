@@ -2,6 +2,10 @@ import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional
 from datetime import datetime
+from utils.logger import get_logger
+
+# Setup logger
+db_logger = get_logger("database")
 
 class MongoDBClient:
     """MongoDB client manager for CodeSentry"""
@@ -19,23 +23,26 @@ class MongoDBClient:
         """Establish MongoDB connection"""
         mongodb_url = os.getenv('MONGODB_URL', 'mongodb://localhost:27017')
         db_name = os.getenv('MONGODB_DB_NAME', 'pr_gate')
-        enabled = os.getenv('MONGODB_ENABLED', 'true').lower() == 'true'
+        enabled = os.getenv('MONGODB_ENABLED', 'false').lower() == 'true'  # Default to false for production
         
         if not enabled:
-            print("ℹ️ MongoDB is disabled (MONGODB_ENABLED=false)")
+            db_logger.info("ℹ️ MongoDB is disabled (MONGODB_ENABLED=false)")
+            self._db = None
             return None
         
         try:
-            self._client = AsyncIOMotorClient(mongodb_url)
+            db_logger.info(f"📡 Connecting to MongoDB...")
+            self._client = AsyncIOMotorClient(mongodb_url, serverSelectionTimeoutMS=5000)
             # Test connection
             await self._client.admin.command('ping')
             self._db = self._client[db_name]
-            print(f"✅ MongoDB connected successfully to {mongodb_url}")
-            print(f"📚 Using database: {db_name}")
+            db_logger.info(f"✅ MongoDB connected successfully to {mongodb_url}")
+            db_logger.info(f"📚 Using database: {db_name}")
             await self._create_indexes()
             return self._db
         except Exception as e:
-            print(f"⚠️ MongoDB connection failed: {e}")
+            db_logger.error(f"⚠️ MongoDB connection failed: {e}")
+            db_logger.warning("⚠️ Continuing without database - some features will be disabled")
             self._client = None
             self._db = None
             return None
@@ -46,6 +53,7 @@ class MongoDBClient:
             return
         
         try:
+            db_logger.debug("Creating database indexes...")
             # Reviews collection indexes
             await self._db.reviews.create_index("pr_number")
             await self._db.reviews.create_index("repository")
@@ -65,9 +73,9 @@ class MongoDBClient:
             # Repositories collection indexes
             await self._db.repositories.create_index("full_name", unique=True)
             
-            print("✅ MongoDB indexes created")
+            db_logger.info("✅ MongoDB indexes created")
         except Exception as e:
-            print(f"⚠️ Index creation warning: {e}")
+            db_logger.warning(f"⚠️ Index creation warning: {e}")
     
     @property
     def db(self):
@@ -83,7 +91,7 @@ class MongoDBClient:
         """Close MongoDB connection"""
         if self._client:
             self._client.close()
-            print("✅ MongoDB disconnected")
+            db_logger.info("✅ MongoDB disconnected")
 
 # Global MongoDB client instance
 mongodb_client = MongoDBClient()

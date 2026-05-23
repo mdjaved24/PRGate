@@ -1,8 +1,13 @@
 from typing import List
 from schemas.findings import Finding
+from utils.logger import get_logger
+
+# Setup logger
+status_logger = get_logger("status_checks")
+
 
 async def create_check_run(repo, commit_sha: str, findings: List[Finding], pr_number: int):
-    """Create a check run (supports emojis and rich formatting)"""
+    """Create a check run using GitHub App (supports rich formatting)"""
     
     critical_count = sum(1 for f in findings if f.severity.value == "critical")
     high_count = sum(1 for f in findings if f.severity.value == "high")
@@ -35,25 +40,26 @@ async def create_check_run(repo, commit_sha: str, findings: List[Finding], pr_nu
         summary = "## No Security Issues Detected\n\nThe code changes look secure. Good job! 👍"
     
     try:
-        # Create check run
+        # Create check run using GitHub App
         check = repo.create_check_run(
             name="PRGate Security Review",
             head_sha=commit_sha,
             status="completed",
             conclusion=conclusion,
             output={
-                "title": title,
-                "summary": summary,
-                "text": format_findings_for_check(findings) if findings else "No issues found."
+                "title": title[:255],  # Max 255 characters
+                "summary": summary[:65535],  # Max 65535 characters
+                "text": format_findings_for_check(findings)[:65535] if findings else "No issues found."
             }
         )
-        print(f"✅ Check run created: {conclusion} - {title[:50]}...")
+        status_logger.info(f"✅ Check run created: {conclusion} - {title[:50]}...")
         return conclusion == "failure"
         
     except Exception as e:
-        print(f"❌ Failed to create check run: {e}")
+        status_logger.error(f"❌ Failed to create check run: {e}")
         # Fall back to status check
         return await create_status_check(repo, commit_sha, findings, pr_number)
+
 
 def format_findings_for_check(findings: List[Finding]) -> str:
     """Format findings for check run output"""
@@ -83,13 +89,15 @@ def format_findings_for_check(findings: List[Finding]) -> str:
     
     return text
 
+
 async def create_status_check(repo, commit_sha: str, findings: List[Finding], pr_number: int):
-    """Fallback status check without emojis"""
+    """Fallback status check (works with both PAT and GitHub App)"""
     critical_count = sum(1 for f in findings if f.severity.value == "critical")
+    high_count = sum(1 for f in findings if f.severity.value == "high")
     
-    if critical_count > 0:
+    if critical_count > 0 or high_count > 0:
         state = "failure"
-        description = f"{critical_count} CRITICAL issue(s) found - merge blocked"
+        description = f"{critical_count + high_count} CRITICAL/HIGH issue(s) found - merge blocked"
         context = "PRGate Security Review"
     elif findings:
         state = "success"
@@ -101,17 +109,22 @@ async def create_status_check(repo, commit_sha: str, findings: List[Finding], pr
         context = "PRGate Security Review"
     
     try:
+        # Get the PR URL for the target URL
+        pr = repo.get_pull(pr_number)
+        target_url = pr.html_url
+        
         status = repo.get_commit(commit_sha).create_status(
             state=state,
-            description=description[:140],
+            description=description[:140],  # GitHub max length
             context=context,
-            target_url=f"https://github.com/repo/pull/{pr_number}"
+            target_url=target_url
         )
-        print(f"✅ Status check created: {state}")
+        status_logger.info(f"✅ Status check created: {state} - {description[:50]}...")
         return state == "failure"
     except Exception as e:
-        print(f"❌ Failed to create status check: {e}")
+        status_logger.error(f"❌ Failed to create status check: {e}")
         return False
+
 
 async def update_pr_labels(pr, findings: List[Finding]):
     """Add labels to PR based on findings"""
@@ -124,14 +137,17 @@ async def update_pr_labels(pr, findings: List[Finding]):
             labels_to_add.append("security-high")
         if any(f.severity.value == "medium" for f in findings):
             labels_to_add.append("security-medium")
+        if any(f.severity.value == "low" for f in findings):
+            labels_to_add.append("security-low")
         if findings:
             labels_to_add.append("needs-security-review")
         
         for label in labels_to_add:
             try:
                 pr.add_to_labels(label)
-                print(f"✅ Added label: {label}")
+                status_logger.info(f"✅ Added label: {label}")
             except Exception as e:
-                print(f"⚠️ Could not add label {label}: {e}")
+                status_logger.warning(f"⚠️ Could not add label {label}: {e}")
+                
     except Exception as e:
-        print(f"❌ Failed to update labels: {e}")
+        status_logger.error(f"❌ Failed to update labels: {e}")
